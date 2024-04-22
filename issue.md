@@ -5,19 +5,22 @@
 When adding a tag to the current span during the sending of a kafka message using KafkaTemplate,
 the tag gets added to another span because the KafkaTemplate doesn't open the scope for the started observation.
 
+The snippet below is the observeSend method in the KafkaTemplate class. It creates an observation object and calls start() but doesn't call openScope().
 ```java
 private CompletableFuture<SendResult<K, V>> observeSend(final ProducerRecord<K, V> producerRecord) {
     Observation observation = ...
     try {
         observation.start();
-        // Should be wrappet in try(Scope scope = observation.openScope()) { ... }
+        // Should be wrapped in try(Scope scope = observation.openScope()) { ... }
         return doSend(producerRecord, observation);
     } catch (RuntimeException ex) {
         ...
     }
 ```
 
-See explanation and example here: https://github.com/micrometer-metrics/micrometer/wiki/Migrating-to-new-1.10.0-Observation-API#you-want-to-do-everything-manually-or-you-want-to-signal-events
+The micrometer documentation explains how to migrate from sleuth to micrometer.  
+The KafkaTemplate.observeSend() method uses the manual approach and according to the explanation, a call to openScope and corresponding close should be added.
+See: https://github.com/micrometer-metrics/micrometer/wiki/Migrating-to-new-1.10.0-Observation-API#you-want-to-do-everything-manually-or-you-want-to-signal-events
 
 ```java
 Observation observation = ...;
@@ -61,9 +64,9 @@ sequenceDiagram
     template ->> interceptor: onSend()
     interceptor ->> micrometer: currentSpan.tag(key, value)
     template ->> kafka: send()
-    micrometer -->>- template: end kafka span
+    micrometer -->- template: end kafka span
     template -->> controller: message sent
-    micrometer -->>- controller: end http span
+    micrometer -->- controller: end http span
     controller -->> user: response
 ```
 
@@ -76,6 +79,8 @@ sequenceDiagram
 ### Expected
 
 - The dynamically added tags should end up in the span of the kafka template
+
+![tag-expected.png](images/tag-expected.png)
 
 ### Workaround
 
