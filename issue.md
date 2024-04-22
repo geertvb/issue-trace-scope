@@ -98,5 +98,7 @@ protected CompletableFuture<SendResult<K, V>> doSend(
 }
 ```
 
-Normally this fix should be done in the `observeSend(producerRecord)` method but unfortunately 
+Normally this fix should be done in the `observeSend(producerRecord)` method but unfortunately
 that method is `private`
+
+The code for the workaround can be found in the `workaround` branch.
