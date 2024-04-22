@@ -1,4 +1,4 @@
-# 
+# KafkaTemplate currentSpan tagging issue
 
 ## Description
 
@@ -37,7 +37,7 @@ try (Scope scope = observation.openScope()) {
 
 - Kafka broker (See Docker compose.yml)
 - Zipkin server (See Docker compose.yml)
-- Spring web application with Micrometer and Zipkin
+- Spring Boot 3.2 web application with Micrometer and Zipkin
 - Rest controller with injected Kafka template
 - Kafka template with injected producer interceptor
 - Producer interceptor with injected micrometer tracer
@@ -69,6 +69,29 @@ sequenceDiagram
 
 ### Then
 
-- The added tags and up
+- The added tags end up in the span of the http request instead of the span of the kafka template
+
+![tag-actual.png](images/tag-actual.png)
 
 ### Expected
+
+- The dynamically added tags should end up in the span of the kafka template
+
+### Workaround
+
+Extend the KafkaTemplate class, override the `doSend(producerRecord, observation)` method and 
+enclose the super method call with opening and closing of the scope.
+
+```java
+@Override
+protected CompletableFuture<SendResult<K, V>> doSend(
+            final ProducerRecord<K, V> producerRecord,
+            Observation observation) {
+    try (var scope = observation.openScope()) {
+        return super.doSend(producerRecord, observation);
+    }
+}
+```
+
+Normally this fix should be done in the `observeSend(producerRecord)` method but unfortunately 
+that method is `private`
